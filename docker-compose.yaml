@@ -1,0 +1,42 @@
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: cinemind_db
+    environment:
+      POSTGRES_DB: cinemind_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "Megha2005@"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinemind_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cinemind_backend
+    working_dir: /app/backend
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=cinemind-super-secret-key
+      - DEBUG=True
+      - DATABASE_URL=postgresql://postgres:Megha2005%40@db:5432/cinemind_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
