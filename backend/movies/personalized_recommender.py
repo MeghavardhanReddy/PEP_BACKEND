@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import joblib
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import linear_kernel
 
 from accounts.models import (
     FavoriteMovie,
@@ -42,63 +44,40 @@ movies = pd.read_csv(
 )
 
 # =========================
-# LOAD MODELS SAFELY
+# LOAD MODELS & INITIALIZE ON THE FLY
 # =========================
 
 svd_model = None
-cosine_sim = None
-indices = None
 
 svd_model_path = os.path.join(
     MODEL_PATH,
     'svd_model.pkl'
 )
 
-cosine_path = os.path.join(
-    MODEL_PATH,
-    'cosine_sim.pkl'
-)
-
-indices_path = os.path.join(
-    MODEL_PATH,
-    'indices.pkl'
-)
-
 if os.path.exists(svd_model_path):
-
     svd_model = joblib.load(
         svd_model_path
     )
-
     print("[OK] SVD model loaded")
-
 else:
-
     print("[WARN] SVD model missing")
 
-if os.path.exists(cosine_path):
-
-    cosine_sim = joblib.load(
-        cosine_path
-    )
-
-    print("[OK] Cosine similarity loaded")
-
-else:
-
-    print("[WARN] Cosine similarity missing")
-
-if os.path.exists(indices_path):
-
-    indices = joblib.load(
-        indices_path
-    )
-
-    print("[OK] Indices loaded")
-
-else:
-
-    print("[WARN] Indices missing")
+# Fit TF-IDF and indices on the fly to save RAM & disk space
+try:
+    movies['genres'] = movies['genres'].fillna('')
+    tfidf = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf.fit_transform(movies['genres'])
+    
+    indices = pd.Series(
+        movies.index,
+        index=movies['title']
+    ).drop_duplicates()
+    
+    print("[OK] TF-IDF Matrix and Indices initialized on the fly")
+except Exception as e:
+    tfidf_matrix = None
+    indices = None
+    print(f"[ERROR] Failed to initialize on-the-fly models: {e}")
 
 # =========================
 # USER PREFERENCE LEARNING
@@ -144,20 +123,25 @@ def personalized_recommendation(
 
 ):
 
-    if not svd_model or cosine_sim is None or indices is None:
+    if not svd_model or tfidf_matrix is None or indices is None:
 
         return ["AI recommendation engine unavailable"]
 
     try:
 
         idx = indices[movie_title]
+        if isinstance(idx, pd.Series):
+            idx = idx.iloc[0]
 
     except:
 
         return ["Movie not found"]
 
+    # Compute similarity row on the fly
+    cosine_sim_row = linear_kernel(tfidf_matrix[idx], tfidf_matrix).flatten()
+
     sim_scores = list(
-        enumerate(cosine_sim[idx])
+        enumerate(cosine_sim_row)
     )
 
     sim_scores = sorted(

@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import joblib
 
@@ -11,15 +12,26 @@ from surprise.model_selection import train_test_split
 from surprise import accuracy
 
 # =========================
+# BASE PATHS
+# =========================
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASET_PATH = os.path.join(os.path.dirname(SCRIPT_DIR), 'datasets')
+MODEL_PATH = os.path.join(SCRIPT_DIR, 'saved_models')
+
+# Create saved_models directory if it doesn't exist
+os.makedirs(MODEL_PATH, exist_ok=True)
+
+# =========================
 # LOAD DATASETS
 # =========================
 
 movies = pd.read_csv(
-    '../datasets/movies.csv'
+    os.path.join(DATASET_PATH, 'movies.csv')
 )
 
 ratings = pd.read_csv(
-    '../datasets/ratings.csv'
+    os.path.join(DATASET_PATH, 'ratings.csv')
 )
 
 print("Datasets Loaded")
@@ -111,22 +123,25 @@ print(f"MAE: {mae}")
 
 joblib.dump(
     svd_model,
-    'saved_models/svd_model.pkl'
+    os.path.join(MODEL_PATH, 'svd_model.pkl')
 )
 
 joblib.dump(
     tfidf,
-    'saved_models/tfidf.pkl'
+    os.path.join(MODEL_PATH, 'tfidf.pkl')
 )
 
-joblib.dump(
-    cosine_sim,
-    'saved_models/cosine_sim.pkl'
-)
+# Skip saving the extremely large cosine similarity matrix (759MB)
+# to stay under the Render free tier 512MB RAM and build limits.
+# cosine_sim is calculated on the fly at recommendation time.
+# joblib.dump(
+#     cosine_sim,
+#     os.path.join(MODEL_PATH, 'cosine_sim.pkl')
+# )
 
 joblib.dump(
     indices,
-    'saved_models/indices.pkl'
+    os.path.join(MODEL_PATH, 'indices.pkl')
 )
 
 print("Models Saved Successfully")

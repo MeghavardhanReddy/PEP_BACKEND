@@ -22,6 +22,9 @@ COPY . /app
 RUN pip install --upgrade pip && \
     pip install -r backend/requirements.txt
 
+# Train the hybrid SVD model at build time
+RUN python ml-engine/train_hybrid_model.py
+
 # Set workdir to backend directory
 WORKDIR /app/backend
 
